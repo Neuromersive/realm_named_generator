@@ -1,0 +1,14 @@
+.DS_Store
+.dart_tool/
+
+.pub/
+doc/
+
+build/
+
+#dart packages and flutter plugins should track commit these files
+pubspec.lock
+.packages
+
+.vs*
+.idea
