@@ -89,9 +89,15 @@ class RealmFieldInfo {
     yield '@override';
     yield "$mappedTypeName get $name => RealmObjectBase.get<$getTypeName>(this, '$realmName') as $mappedTypeName;";
     bool generateSetter = !isFinal && !isRealmCollection && !isRealmBacklink;
+    final setterSignature =
+        "set $name(${mappedTypeName != modelTypeName ? 'covariant ' : ''}$mappedTypeName value)";
     if (generateSetter) {
       yield '@override';
-      yield "set $name(${mappedTypeName != modelTypeName ? 'covariant ' : ''}$mappedTypeName value) => RealmObjectBase.set(this, '$realmName', value);";
+      yield "$setterSignature => RealmObjectBase.set(this, '$realmName', value);";
+    } else {
+      yield '@override';
+      yield '@Deprecated("No setter for this field! Will throw if used")';
+      yield "$setterSignature => throw 'No setter for field \"$name\"';";
     }
   }
 
