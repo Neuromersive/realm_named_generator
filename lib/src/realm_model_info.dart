@@ -150,15 +150,16 @@ class RealmModelInfo {
     }
     yield '}';
 
+    final builderFields = fields.where((f) => !f.isRealmBacklink);
     yield 'class ${name}Builder {';
     {
-      yield* fields.map((f) => f.toBuilderDefinition());
+      yield* builderFields.map((f) => f.toBuilderDefinition());
       yield '';
 
       yield '$name build() {';
       {
         yield 'return $name(';
-        yield* fields.map((f) => f.toBuilderAssignment());
+        yield* builderFields.map((f) => f.toBuilderAssignment());
         yield ');';
       }
       yield '}';
