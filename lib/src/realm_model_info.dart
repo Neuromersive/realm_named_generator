@@ -33,6 +33,8 @@ class RealmModelInfo {
       this.name, this.modelName, this.realmName, this.fields, this.baseType);
 
   Iterable<String> toCode() sync* {
+    final builderFields = fields.where((f) => !f.isRealmBacklink);
+
     yield 'class $name extends $modelName with RealmEntity, RealmObjectBase, ${baseType.className} {';
     {
       final allSettable = fields
@@ -108,8 +110,6 @@ class RealmModelInfo {
       yield '@override';
       yield '$name freeze() => RealmObjectBase.freezeObject<$name>(this);';
       yield '';
-
-      final builderFields = fields.where((f) => !f.isRealmBacklink);
 
       yield '${name}Builder toBuilder() {';
       {
