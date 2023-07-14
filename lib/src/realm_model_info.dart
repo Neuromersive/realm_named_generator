@@ -109,10 +109,12 @@ class RealmModelInfo {
       yield '$name freeze() => RealmObjectBase.freezeObject<$name>(this);';
       yield '';
 
+      final builderFields = fields.where((f) => !f.isRealmBacklink);
+
       yield '${name}Builder toBuilder() {';
       {
         yield 'return ${name}Builder()';
-        yield* fields.map((f) => '..${f.name} = ${f.name}');
+        yield* builderFields.map((f) => '..${f.name} = ${f.name}');
         yield ';';
       }
       yield '}';
@@ -150,7 +152,6 @@ class RealmModelInfo {
     }
     yield '}';
 
-    final builderFields = fields.where((f) => !f.isRealmBacklink);
     yield 'class ${name}Builder {';
     {
       yield* builderFields.map((f) => f.toBuilderDefinition());
