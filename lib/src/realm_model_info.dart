@@ -113,9 +113,7 @@ class RealmModelInfo {
 
       yield '${name}Builder toBuilder() {';
       {
-        yield 'return ${name}Builder()';
-        yield* builderFields.map((f) => '..${f.name} = ${f.name}');
-        yield ';';
+        yield 'return ${name}Builder.from(this);';
       }
       yield '}';
       yield '';
@@ -154,7 +152,16 @@ class RealmModelInfo {
 
     yield 'class ${name}Builder {';
     {
-      yield* builderFields.map((f) => f.toBuilderDefinition());
+      yield '${name}Builder() : source = null, _didChange = true;';
+      yield '${name}Builder.from(this.source) : _didChange = false;';
+      yield '';
+
+      yield 'final ${name}? source;';
+      yield 'bool _didChange;';
+      yield 'bool get didChange => _didChange;';
+      yield '';
+
+      yield* builderFields.expand((f) => f.toBuilderDefinition());
       yield '';
 
       yield '$name build() {';

@@ -3,7 +3,7 @@ description: >-
              Custom generator for RealmObjects, which uses named parameters for required fields
              Also generates builders for each RealmObject
 
-version: 1.0.3
+version: 1.1.0
 
 repository: https://github.com/Neuromersive/realm_named_generator
 

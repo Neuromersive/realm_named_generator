@@ -101,10 +101,15 @@ class RealmFieldInfo {
     }
   }
 
-  String toBuilderDefinition() {
+  Iterable<String> toBuilderDefinition() sync* {
     var typeName = type.basicMappedName;
     if (!type.isNullable) typeName += '?';
-    return "$typeName $name;";
+    yield "$typeName _$name;"; 
+    yield "$typeName get $name => _$name ?? source?.$name;";
+    yield "set $name($typeName value) {";
+    yield "  _$name = value;";
+    yield "  _didChange = true;";
+    yield "}";
   }
 
   String toBuilderAssignment() {
