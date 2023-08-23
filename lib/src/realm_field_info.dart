@@ -102,9 +102,9 @@ class RealmFieldInfo {
   }
 
   Iterable<String> toBuilderDefinition() sync* {
-    var typeName = type.basicMappedName;
+    var typeName = isRealmCollection ? modelTypeName : basicMappedTypeName;
     if (!type.isNullable) typeName += '?';
-    yield "$typeName _$name;"; 
+    yield "$typeName _$name;";
     yield "$typeName get $name => _$name ?? source?.$name;";
     yield "set $name($typeName value) {";
     yield "  _$name = value;";
