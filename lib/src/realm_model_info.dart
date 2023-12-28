@@ -49,6 +49,9 @@ class RealmModelInfo {
 
       yield '$name({';
       {
+        yield 'DateTime? createdAt,';
+        yield 'DateTime? updatedAt,';
+
         final required =
             allSettable.where((f) => f.isRequired || f.isPrimaryKey);
         yield* required.map((f) => 'required ${f.mappedTypeName} ${f.name},');
@@ -71,6 +74,9 @@ class RealmModelInfo {
         }
 
         yield '}) {';
+
+        yield "RealmObjectBase.set(this, 'createdAt', createdAt ?? DateTime.now());";
+        yield "RealmObjectBase.set(this, 'updatedAt', updatedAt ?? DateTime.now());";
 
         if (hasDefaults.isNotEmpty) {
           yield 'if (!_defaultsSet) {';
@@ -98,6 +104,21 @@ class RealmModelInfo {
       yield '$name._();';
       yield '';
 
+      // createdAt accessors
+      yield "DateTime? get createdAt =>";
+      yield "    RealmObjectBase.get<DateTime>(this, 'createdAt') as DateTime?;";
+      yield "@Deprecated(\"No setter for this field! Will throw if used\")";
+      yield "set createdAt(DateTime? value) => throw 'No setter for field \"createdAt\"';";
+      yield "";
+
+      // updatedAt accessors
+      yield "DateTime? get updatedAt =>";
+      yield "    RealmObjectBase.get<DateTime>(this, 'updatedAt') as DateTime?;";
+      yield "@Deprecated(\"No setter for this field! Will throw if used\")";
+      yield "set updatedAt(DateTime? value) => throw 'No setter for field \"updatedAt\"';";
+      yield "";
+
+      // Rest of the accessors
       yield* fields.expand((f) => [
             ...f.toCode(),
             '',
@@ -125,6 +146,9 @@ class RealmModelInfo {
         yield 'RealmObjectBase.registerFactory($name._);';
         yield "return const SchemaObject(ObjectType.${baseType.name}, $name, '$realmName', [";
         {
+          yield "SchemaProperty('createdAt', RealmPropertyType.timestamp, optional: true),";
+          yield "SchemaProperty('updatedAt', RealmPropertyType.timestamp, optional: true),";
+
           yield* fields.map((f) {
             final namedArgs = {
               if (f.name != f.realmName) 'mapTo': f.realmName,
@@ -167,6 +191,10 @@ class RealmModelInfo {
       yield '$name build() {';
       {
         yield 'return $name(';
+
+        yield "createdAt: source?.createdAt ?? DateTime.now(),";
+        yield "updatedAt: didChange ? DateTime.now() : source!.updatedAt,";
+
         yield* builderFields.map((f) => f.toBuilderAssignment());
         yield ');';
       }
