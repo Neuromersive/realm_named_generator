@@ -93,7 +93,10 @@ class RealmFieldInfo {
         "set $name(${mappedTypeName != modelTypeName ? 'covariant ' : ''}$mappedTypeName value)";
     if (generateSetter) {
       yield '@override';
-      yield "$setterSignature => RealmObjectBase.set(this, '$realmName', value);";
+      yield "$setterSignature {";
+      yield "  RealmObjectBase.set(this, '$realmName', value);";
+      yield "  RealmObjectBase.set(this, 'updatedAt', DateTime.now());";
+      yield "}";
     } else {
       yield '@override';
       yield '@Deprecated("No setter for this field! Will throw if used")';
