@@ -16,7 +16,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-library realm_generator;
+library realm_named_generator;
 
 import 'dart:async';
 import 'dart:io';
@@ -24,7 +24,7 @@ import 'dart:io';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:build/build.dart';
-import 'package:realm_generator/src/utils.dart';
+import 'package:realm_named_generator/src/utils.dart';
 import 'package:source_gen/source_gen.dart';
 
 import 'class_element_ex.dart';

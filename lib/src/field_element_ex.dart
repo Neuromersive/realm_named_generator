@@ -22,9 +22,9 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
 import 'package:realm_common/realm_common.dart';
-import 'package:realm_generator/src/expanded_context_span.dart';
-import 'package:realm_generator/src/pseudo_type.dart';
-import 'package:realm_generator/src/utils.dart';
+import 'package:realm_named_generator/src/expanded_context_span.dart';
+import 'package:realm_named_generator/src/pseudo_type.dart';
+import 'package:realm_named_generator/src/utils.dart';
 import 'package:source_gen/source_gen.dart';
 import 'package:source_span/source_span.dart';
 

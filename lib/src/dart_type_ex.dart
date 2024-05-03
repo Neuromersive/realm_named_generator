@@ -21,7 +21,7 @@ import 'dart:typed_data';
 import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:realm_common/realm_common.dart';
-import 'package:realm_generator/src/pseudo_type.dart';
+import 'package:realm_named_generator/src/pseudo_type.dart';
 import 'package:source_gen/source_gen.dart';
 
 import 'session.dart';

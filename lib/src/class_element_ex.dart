@@ -19,7 +19,7 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:realm_common/realm_common.dart';
-import 'package:realm_generator/src/dart_type_ex.dart';
+import 'package:realm_named_generator/src/dart_type_ex.dart';
 import 'package:source_gen/source_gen.dart';
 import 'annotation_value.dart';
 import 'error.dart';
