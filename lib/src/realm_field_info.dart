@@ -43,51 +43,54 @@ class RealmFieldInfo {
   DartType get type => fieldElement.type;
 
   bool get isFinal => fieldElement.isFinal;
-  bool get isRealmCollection => type.isRealmCollection;
-  bool get isDartCoreSet => type.isDartCoreSet;
   bool get isLate => fieldElement.isLate;
   bool get hasDefaultValue => fieldElement.hasInitializer;
-  bool get optional =>
-      type.basicType.isNullable || realmType == RealmPropertyType.mixed;
+  bool get optional => type.basicType.isNullable || realmType == RealmPropertyType.mixed;
   bool get isRequired => !(hasDefaultValue || optional);
   bool get isRealmBacklink => realmType == RealmPropertyType.linkingObjects;
   bool get isMixed => realmType == RealmPropertyType.mixed;
   bool get isComputed => isRealmBacklink; // only computed, so far
+
+  bool get isRealmCollection => type.isRealmCollection;
+  bool get isDartCoreList => type.isDartCoreList;
+  bool get isDartCoreSet => type.isDartCoreSet;
+  bool get isDartCoreMap => type.isDartCoreMap;
 
   String get name => fieldElement.name;
   String get realmName => mapTo ?? name;
 
   String get basicMappedTypeName => type.basicMappedName;
 
-  String get basicNonNullableMappedTypeName =>
-      type.basicType.asNonNullable.mappedName;
+  String get basicNonNullableMappedTypeName => type.basicType.asNonNullable.mappedName;
 
   String get basicRealmTypeName =>
-      fieldElement
-          .modelType.basicType.asNonNullable.element2?.remappedRealmName ??
-      fieldElement.modelType.asNonNullable.basicMappedName;
+      fieldElement.modelType.basicType.asNonNullable.element?.remappedRealmName ?? fieldElement.modelType.basicType.asNonNullable.basicMappedName;
 
   String get modelTypeName => fieldElement.modelTypeName;
 
   String get mappedTypeName => fieldElement.mappedTypeName;
 
   String get initializer {
-    if (type.isDartCoreList) return ' = const []';
-    if (isMixed && !type.isRealmCollection)
-      return ' = const RealmValue.nullValue()';
+    if (type.realmCollectionType == RealmCollectionType.list) return ' = const []';
+    if (type.realmCollectionType == RealmCollectionType.set) return ' = const {}';
+    if (type.realmCollectionType == RealmCollectionType.map) return ' = const {}';
+    if (isMixed) return ' = const RealmValue.nullValue()';
     if (hasDefaultValue) return ' = ${fieldElement.initializerExpression}';
-    if (type.isDartCoreSet) return ' = const {}';
     return ''; // no initializer
   }
 
   RealmCollectionType get realmCollectionType => type.realmCollectionType;
 
   Iterable<String> toCode() sync* {
-    final getTypeName = type.isRealmCollection
-        ? basicMappedTypeName
-        : basicNonNullableMappedTypeName;
+    final getTypeName = type.isRealmCollection ? basicMappedTypeName : basicNonNullableMappedTypeName;
     yield '@override';
-    yield "$mappedTypeName get $name => RealmObjectBase.get<$getTypeName>(this, '$realmName') as $mappedTypeName;";
+    if (isRealmBacklink) {
+      yield "$mappedTypeName get $name {";
+      yield "if (!isManaged) { throw RealmError('Using backlinks is only possible for managed objects.'); }";
+      yield "return RealmObjectBase.get<$getTypeName>(this, '$realmName') as $mappedTypeName;}";
+    } else {
+      yield "$mappedTypeName get $name => RealmObjectBase.get<$getTypeName>(this, '$realmName') as $mappedTypeName;";
+    }
     bool generateSetter = !isFinal && !isRealmCollection && !isRealmBacklink;
     final setterSignature =
         "set $name(${mappedTypeName != modelTypeName ? 'covariant ' : ''}$mappedTypeName value)";

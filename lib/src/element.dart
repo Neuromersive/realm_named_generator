@@ -93,14 +93,10 @@ extension ElementEx on Element {
 
       throw RealmInvalidGenerationSourceError('Repeated annotation',
           element: this,
-          primarySpan:
-              ExpandedContextSpan(second.annotation.span(file), [elementSpan]),
+          primarySpan: ExpandedContextSpan(second.annotation.span(file), [elementSpan]),
           primaryLabel: 'duplicated annotation',
           secondarySpans: {
-            ...{
-              for (final a in annotations..removeAt(1))
-                a.annotation.span(file): ''
-            }
+            ...{for (final a in annotations..removeAt(1)) a.annotation.span(file): ''}
           },
           todo: 'Remove all duplicated ${second.annotation} annotations.');
     }
@@ -120,18 +116,13 @@ extension ElementEx on Element {
       if (self is FieldElement) {
         final node = self.declarationAstNode;
         if (node.metadata.isNotEmpty) {
-          return ExpandedContextSpan(
-              elementSpan, [node.span(elementSpan.file)]);
+          return ExpandedContextSpan(elementSpan, [node.span(elementSpan.file)]);
         }
       } else if (self is ClassElement) {
         final node = self.declarationAstNode;
         if (node.metadata.isNotEmpty) {
           // don't include full class
-          return ExpandedContextSpan(elementSpan, [
-            node
-                .span(elementSpan.file)
-                .clampEnd(elementSpan.extentToEndOfLine())
-          ]);
+          return ExpandedContextSpan(elementSpan, [node.span(elementSpan.file).clampEnd(elementSpan.extentToEndOfLine())]);
         }
       }
     } catch (_) {}
