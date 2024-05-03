@@ -29,73 +29,71 @@ class RealmModelInfo {
   final List<RealmFieldInfo> fields;
   final ObjectType baseType;
 
-  const RealmModelInfo(
-      this.name, this.modelName, this.realmName, this.fields, this.baseType);
+  const RealmModelInfo(this.name, this.modelName, this.realmName, this.fields, this.baseType);
 
   Iterable<String> toCode() sync* {
-    final builderFields = fields.where((f) => !f.isRealmBacklink);
-
     yield 'class $name extends $modelName with RealmEntity, RealmObjectBase, ${baseType.className} {';
     {
-      final allSettable = fields
-          .where((f) => !f.type.isRealmCollection && !f.isRealmBacklink)
-          .toList();
+      final allSettable = fields.where((f) => !f.type.isRealmCollection && !f.isRealmBacklink).toList();
 
-      final hasDefaults = allSettable.where((f) => f.hasDefaultValue).toList();
-      if (hasDefaults.isNotEmpty) {
+      final fieldsWithDefaultValue = allSettable.where((f) => f.hasDefaultValue && !f.type.isUint8List).toList();
+      final shouldEmitDefaultsSet = fieldsWithDefaultValue.isNotEmpty;
+      if (shouldEmitDefaultsSet) {
         yield 'static var _defaultsSet = false;';
         yield '';
       }
 
-      yield '$name({';
+      // Constructor
+      yield '$name(';
       {
-        yield 'DateTime? createdAt,';
-        yield 'DateTime? updatedAt,';
+        final required = allSettable.where((f) => f.isRequired || f.isPrimaryKey);
+        yield* required.map((f) => '${f.mappedTypeName} ${f.name},');
 
-        final required =
-            allSettable.where((f) => f.isRequired || f.isPrimaryKey);
-        yield* required.map((f) => 'required ${f.mappedTypeName} ${f.name},');
-
-        final notRequired =
-            allSettable.where((f) => !f.isRequired && !f.isPrimaryKey);
-        final collections = fields
-            .where((f) => f.isRealmCollection && !f.isDartCoreSet)
-            .toList();
+        final notRequired = allSettable.where((f) => !f.isRequired && !f.isPrimaryKey);
+        final lists = fields.where((f) => f.isDartCoreList).toList();
         final sets = fields.where((f) => f.isDartCoreSet).toList();
-        if (notRequired.isNotEmpty ||
-            collections.isNotEmpty ||
-            sets.isNotEmpty) {
-          yield* notRequired
-              .map((f) => '${f.mappedTypeName} ${f.name}${f.initializer},');
-          yield* collections.map((c) =>
-              'Iterable<${c.type.basicMappedName}> ${c.name}${c.initializer},');
-          yield* sets.map((c) =>
-              'Set<${c.type.basicMappedName}> ${c.name}${c.initializer},');
+        final maps = fields.where((f) => f.isDartCoreMap).toList();
+        if (notRequired.isNotEmpty || lists.isNotEmpty || sets.isNotEmpty || maps.isNotEmpty) {
+          yield '{';
+          yield* notRequired.map((f) {
+            if (f.type.isUint8List && f.hasDefaultValue) {
+              return '${f.mappedTypeName}? ${f.name},';
+            }
+            return '${f.mappedTypeName} ${f.name}${f.initializer},';
+          });
+          yield* lists.map((c) => 'Iterable<${c.type.basicMappedName}> ${c.name}${c.initializer},');
+          yield* sets.map((c) => 'Set<${c.type.basicMappedName}> ${c.name}${c.initializer},');
+          yield* maps.map((c) => 'Map<String, ${c.type.basicMappedName}> ${c.name}${c.initializer},');
+          yield '}';
         }
 
-        yield '}) {';
+        yield ') {';
 
-        yield "RealmObjectBase.set(this, 'createdAt', createdAt ?? DateTime.now());";
-        yield "RealmObjectBase.set(this, 'updatedAt', updatedAt ?? DateTime.now());";
-
-        if (hasDefaults.isNotEmpty) {
+        if (shouldEmitDefaultsSet) {
           yield 'if (!_defaultsSet) {';
           yield '  _defaultsSet = RealmObjectBase.setDefaults<$name>({';
-          yield* hasDefaults.map((f) =>
-              "'${f.realmName}': ${f.fieldElement.initializerExpression},");
+          yield* fieldsWithDefaultValue.map((f) => "'${f.realmName}': ${f.fieldElement.initializerExpression},");
           yield '  });';
           yield '}';
         }
 
         yield* allSettable.map((f) {
+          if (f.type.isUint8List && f.hasDefaultValue) {
+            return "RealmObjectBase.set(this, '${f.realmName}', ${f.name} ?? ${f.fieldElement.initializerExpression});";
+          }
+
           return "RealmObjectBase.set(this, '${f.realmName}', ${f.name});";
         });
 
-        yield* collections.map((c) {
+        yield* lists.map((c) {
           return "RealmObjectBase.set<${c.mappedTypeName}>(this, '${c.realmName}', ${c.mappedTypeName}(${c.name}));";
         });
 
         yield* sets.map((c) {
+          return "RealmObjectBase.set<${c.mappedTypeName}>(this, '${c.realmName}', ${c.mappedTypeName}(${c.name}));";
+        });
+
+        yield* maps.map((c) {
           return "RealmObjectBase.set<${c.mappedTypeName}>(this, '${c.realmName}', ${c.mappedTypeName}(${c.name}));";
         });
       }
@@ -104,41 +102,23 @@ class RealmModelInfo {
       yield '$name._();';
       yield '';
 
-      // createdAt accessors
-      yield "DateTime? get createdAt =>";
-      yield "    RealmObjectBase.get<DateTime>(this, 'createdAt') as DateTime?;";
-      yield "@Deprecated(\"No setter for this field! Will throw if used\")";
-      yield "set createdAt(DateTime? value) => throw 'No setter for field \"createdAt\"';";
-      yield "";
-
-      // updatedAt accessors
-      yield "DateTime? get updatedAt =>";
-      yield "    RealmObjectBase.get<DateTime>(this, 'updatedAt') as DateTime?;";
-      yield "@Deprecated(\"No setter for this field! Will throw if used\")";
-      yield "set updatedAt(DateTime? value) => throw 'No setter for field \"updatedAt\"';";
-      yield "";
-
-      // Rest of the accessors
+      // Properties
       yield* fields.expand((f) => [
             ...f.toCode(),
             '',
           ]);
 
+      // Changes
       yield '@override';
       yield 'Stream<RealmObjectChanges<$name>> get changes => RealmObjectBase.getChanges<$name>(this);';
       yield '';
 
+      // Freeze
       yield '@override';
       yield '$name freeze() => RealmObjectBase.freezeObject<$name>(this);';
       yield '';
 
-      yield '${name}Builder toBuilder() {';
-      {
-        yield 'return ${name}Builder.from(this);';
-      }
-      yield '}';
-      yield '';
-
+      // Schema
       yield 'static SchemaObject get schema => _schema ??= _initSchema();';
       yield 'static SchemaObject? _schema;';
       yield 'static SchemaObject _initSchema() {';
@@ -146,57 +126,24 @@ class RealmModelInfo {
         yield 'RealmObjectBase.registerFactory($name._);';
         yield "return const SchemaObject(ObjectType.${baseType.name}, $name, '$realmName', [";
         {
-          yield "SchemaProperty('createdAt', RealmPropertyType.timestamp, optional: true),";
-          yield "SchemaProperty('updatedAt', RealmPropertyType.timestamp, optional: true),";
-
           yield* fields.map((f) {
             final namedArgs = {
               if (f.name != f.realmName) 'mapTo': f.realmName,
               if (f.optional) 'optional': f.optional,
               if (f.isPrimaryKey) 'primaryKey': f.isPrimaryKey,
               if (f.indexType != null) 'indexType': f.indexType,
-              if (f.realmType == RealmPropertyType.object)
-                'linkTarget': f.basicRealmTypeName,
+              if (f.realmType == RealmPropertyType.object) 'linkTarget': f.basicRealmTypeName,
               if (f.realmType == RealmPropertyType.linkingObjects) ...{
                 'linkOriginProperty': f.linkOriginProperty!,
                 'collectionType': RealmCollectionType.list,
                 'linkTarget': f.basicRealmTypeName,
               },
-              if (f.realmCollectionType != RealmCollectionType.none)
-                'collectionType': f.realmCollectionType,
+              if (f.realmCollectionType != RealmCollectionType.none) 'collectionType': f.realmCollectionType,
             };
             return "SchemaProperty('${f.name}', ${f.realmType}${namedArgs.isNotEmpty ? ', ${namedArgs.toArgsString()}' : ''}),";
           });
         }
         yield ']);';
-      }
-      yield '}';
-    }
-    yield '}';
-
-    yield 'class ${name}Builder {';
-    {
-      yield '${name}Builder() : source = null, _didChange = true;';
-      yield '${name}Builder.from(this.source) : _didChange = false;';
-      yield '';
-
-      yield 'final ${name}? source;';
-      yield 'bool _didChange;';
-      yield 'bool get didChange => _didChange;';
-      yield '';
-
-      yield* builderFields.expand((f) => f.toBuilderDefinition());
-      yield '';
-
-      yield '$name build() {';
-      {
-        yield 'return $name(';
-
-        yield "createdAt: source?.createdAt ?? DateTime.now(),";
-        yield "updatedAt: didChange ? DateTime.now() : source!.updatedAt,";
-
-        yield* builderFields.map((f) => f.toBuilderAssignment());
-        yield ');';
       }
       yield '}';
     }

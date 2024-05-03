@@ -21,8 +21,8 @@ import 'dart:math';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:realm_named_generator/src/annotation_value.dart';
-import 'package:realm_named_generator/src/expanded_context_span.dart';
+import 'package:realm_generator/src/annotation_value.dart';
+import 'package:realm_generator/src/expanded_context_span.dart';
 import 'package:source_gen/source_gen.dart';
 import 'package:source_span/source_span.dart';
 
@@ -93,14 +93,10 @@ extension ElementEx on Element {
 
       throw RealmInvalidGenerationSourceError('Repeated annotation',
           element: this,
-          primarySpan:
-              ExpandedContextSpan(second.annotation.span(file), [elementSpan]),
+          primarySpan: ExpandedContextSpan(second.annotation.span(file), [elementSpan]),
           primaryLabel: 'duplicated annotation',
           secondarySpans: {
-            ...{
-              for (final a in annotations..removeAt(1))
-                a.annotation.span(file): ''
-            }
+            ...{for (final a in annotations..removeAt(1)) a.annotation.span(file): ''}
           },
           todo: 'Remove all duplicated ${second.annotation} annotations.');
     }
@@ -120,18 +116,13 @@ extension ElementEx on Element {
       if (self is FieldElement) {
         final node = self.declarationAstNode;
         if (node.metadata.isNotEmpty) {
-          return ExpandedContextSpan(
-              elementSpan, [node.span(elementSpan.file)]);
+          return ExpandedContextSpan(elementSpan, [node.span(elementSpan.file)]);
         }
       } else if (self is ClassElement) {
         final node = self.declarationAstNode;
         if (node.metadata.isNotEmpty) {
           // don't include full class
-          return ExpandedContextSpan(elementSpan, [
-            node
-                .span(elementSpan.file)
-                .clampEnd(elementSpan.extentToEndOfLine())
-          ]);
+          return ExpandedContextSpan(elementSpan, [node.span(elementSpan.file).clampEnd(elementSpan.extentToEndOfLine())]);
         }
       }
     } catch (_) {}

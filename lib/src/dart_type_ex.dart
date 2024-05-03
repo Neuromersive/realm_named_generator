@@ -21,7 +21,7 @@ import 'dart:typed_data';
 import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:realm_common/realm_common.dart';
-import 'package:realm_named_generator/src/pseudo_type.dart';
+import 'package:realm_generator/src/pseudo_type.dart';
 import 'package:source_gen/source_gen.dart';
 
 import 'session.dart';
@@ -31,36 +31,39 @@ extension DartTypeEx on DartType {
   bool isExactly<T>() => TypeChecker.fromRuntime(T).isExactlyType(this);
   bool isA<T>() => TypeChecker.fromRuntime(T).isAssignableFromType(this);
 
-  bool get isRealmValue =>
-      const TypeChecker.fromRuntime(RealmValue).isAssignableFromType(this);
+  bool get isRealmValue => const TypeChecker.fromRuntime(RealmValue).isAssignableFromType(this);
   bool get isRealmCollection => realmCollectionType != RealmCollectionType.none;
   bool get isRealmSet => realmCollectionType == RealmCollectionType.set;
-  bool get isRealmModel => element2 != null
-      ? realmModelChecker.annotationsOfExact(element2!).isNotEmpty
-      : false;
+
+  ObjectType? get realmObjectType {
+    if (element == null) return null;
+    final realmModelAnnotation = realmModelChecker.firstAnnotationOfExact(element!);
+    if (realmModelAnnotation == null) return null; // not a RealmModel
+    final index = realmModelAnnotation.getField('type')!.getField('index')!.toIntValue()!;
+    return ObjectType.values[index];
+  }
+
+  bool get isRealmModel => realmObjectType != null;
+  bool isRealmModelOfType(ObjectType type) => realmObjectType == type;
+
+  bool get isUint8List => isExactly<Uint8List>();
 
   bool get isNullable => session.typeSystem.isNullable(this);
   DartType get asNonNullable => session.typeSystem.promoteToNonNull(this);
-  DartType get asNullable =>
-      session.typeSystem.leastUpperBound(this, session.typeProvider.nullType);
+  DartType get asNullable => session.typeSystem.leastUpperBound(this, session.typeProvider.nullType);
 
   RealmCollectionType get realmCollectionType {
     if (isDartCoreSet) return RealmCollectionType.set;
     if (isDartCoreList) return RealmCollectionType.list;
-    if (isDartCoreMap &&
-        (this as ParameterizedType).typeArguments.first ==
-            session.typeProvider.stringType) {
-      return RealmCollectionType.dictionary;
-    }
+    if (isDartCoreMap) return RealmCollectionType.map;
     return RealmCollectionType.none;
   }
 
-  DartType? get nullIfDynamic => isDynamic ? null : this;
+  DartType? get nullIfDynamic => this is DynamicType ? null : this;
 
   DartType get basicType {
     final self = this;
-    if (self is ParameterizedType &&
-        (isRealmCollection || isDartCoreIterable)) {
+    if (self is ParameterizedType && (isRealmCollection || isDartCoreIterable)) {
       return self.typeArguments.last;
     }
     return this;
@@ -74,25 +77,14 @@ extension DartTypeEx on DartType {
       if (self is ParameterizedType) {
         final mapped = self.typeArguments.last.mappedType;
         if (self != mapped) {
-          final provider = session.typeProvider;
           if (self.isDartCoreList) {
-            final mappedList = provider.listType(mapped);
-            return PseudoType(
-                'Realm${mappedList.getDisplayString(withNullability: true)}',
-                nullabilitySuffix: mappedList.nullabilitySuffix);
+            return PseudoType('RealmList<${mapped.getDisplayString(withNullability: true)}>');
           }
           if (self.isDartCoreSet) {
-            final mappedSet = provider.setType(mapped);
-            return PseudoType(
-                'Realm${mappedSet.getDisplayString(withNullability: true)}',
-                nullabilitySuffix: mappedSet.nullabilitySuffix);
+            return PseudoType('RealmSet<${mapped.getDisplayString(withNullability: true)}>');
           }
           if (self.isDartCoreMap) {
-            final mappedMap =
-                provider.mapType(self.typeArguments.first, mapped);
-            return PseudoType(
-                'Realm${mappedMap.getDisplayString(withNullability: true)}',
-                nullabilitySuffix: mappedMap.nullabilitySuffix);
+            return PseudoType('RealmMap<${mapped.getDisplayString(withNullability: true)}>');
           }
         }
       }
@@ -100,8 +92,7 @@ extension DartTypeEx on DartType {
       if (self is ParameterizedType) {
         final mapped = self.typeArguments.last.mappedType;
         if (self != mapped) {
-          return PseudoType('RealmResults<${mapped.basicMappedName}>',
-              nullabilitySuffix: NullabilitySuffix.none);
+          return PseudoType('RealmResults<${mapped.basicMappedName}>', nullabilitySuffix: NullabilitySuffix.none);
         }
       }
     } else if (isRealmModel) {
@@ -119,10 +110,7 @@ extension DartTypeEx on DartType {
 
   RealmPropertyType? _realmType(bool recurse) {
     if (isRealmCollection && recurse) {
-      return (this as ParameterizedType)
-          .typeArguments
-          .last
-          ._realmType(false); // only recurse once! (for now)
+      return (this as ParameterizedType).typeArguments.last._realmType(false); // only recurse once! (for now)
     }
     if (isDartCoreInt) return RealmPropertyType.int;
     if (isDartCoreBool) return RealmPropertyType.bool;
