@@ -92,16 +92,36 @@ class RealmFieldInfo {
       yield "$mappedTypeName get $name => RealmObjectBase.get<$getTypeName>(this, '$realmName') as $mappedTypeName;";
     }
     bool generateSetter = !isFinal && !isRealmCollection && !isRealmBacklink;
+    final setterSignature =
+        "set $name(${mappedTypeName != modelTypeName ? 'covariant ' : ''}$mappedTypeName value)";
     if (generateSetter) {
       yield '@override';
-      yield "set $name(${mappedTypeName != modelTypeName ? 'covariant ' : ''}$mappedTypeName value) => RealmObjectBase.set(this, '$realmName', value);";
+      yield "$setterSignature {";
+      yield "  RealmObjectBase.set(this, '$realmName', value);";
+      yield "  RealmObjectBase.set(this, 'updatedAt', DateTime.now());";
+      yield "}";
     } else {
-      bool generateThrowError = isLate || isRealmCollection || isRealmBacklink;
-      if (generateThrowError) {
-        yield '@override';
-        yield "set $name(${mappedTypeName != modelTypeName ? 'covariant ' : ''}$mappedTypeName value) => throw RealmUnsupportedSetError();";
-      }
+      yield '@override';
+      yield '@Deprecated("No setter for this field! Will throw if used")';
+      yield "$setterSignature => throw 'No setter for field \"$name\"';";
     }
+  }
+
+  Iterable<String> toBuilderDefinition() sync* {
+    var typeName = isRealmCollection ? modelTypeName : basicMappedTypeName;
+    if (!type.isNullable) typeName += '?';
+    yield "$typeName _$name;";
+    yield "$typeName get $name => _$name ?? source?.$name;";
+    yield "set $name($typeName value) {";
+    yield "  _$name = value;";
+    yield "  _didChange = true;";
+    yield "}";
+  }
+
+  String toBuilderAssignment() {
+    var fieldName = name;
+    if (!type.isNullable) fieldName += '!';
+    return "$name: $fieldName,";
   }
 
   @override
