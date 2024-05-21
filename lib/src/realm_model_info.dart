@@ -74,6 +74,7 @@ class RealmModelInfo {
 
         yield "RealmObjectBase.set(this, 'createdAt', createdAt ?? DateTime.now());";
         yield "RealmObjectBase.set(this, 'updatedAt', updatedAt ?? DateTime.now());";
+        yield "RealmObjectBase.set(this, 'isDeleted', false);";
 
         if (shouldEmitDefaultsSet) {
           yield 'if (!_defaultsSet) {';
@@ -122,6 +123,21 @@ class RealmModelInfo {
       yield "set updatedAt(DateTime? value) => throw 'No setter for field \"updatedAt\"';";
       yield "";
 
+      // isDeleted accessors
+      yield "bool get isDeleted =>";
+      yield "    RealmObjectBase.get<bool>(this, 'isDeleted') as bool? ?? false;";
+      yield "@Deprecated(\"No setter for this field! Will throw if used\")";
+      yield "set isDeleted(bool? value) => throw 'No setter for field \"isDeleted\"';";
+      yield "";
+      yield "/// Flag this object as deleted";
+      yield "/// May only be called within a Realm.Write block";
+      yield "/// This object should not be referenced after calling this";
+      yield "void setDeleted() {";
+      yield "  if (isDeleted) return;";
+      yield "  RealmObjectBase.set(this, 'isDeleted', true);";
+      yield "  RealmObjectBase.set(this, 'updatedAt', DateTime.now());";
+      yield "}";
+
       // Rest of the accessors
       yield* fields.expand((f) => [
             ...f.toCode(),
@@ -155,6 +171,7 @@ class RealmModelInfo {
         {
           yield "SchemaProperty('createdAt', RealmPropertyType.timestamp, optional: true),";
           yield "SchemaProperty('updatedAt', RealmPropertyType.timestamp, optional: true),";
+          yield "SchemaProperty('isDeleted', RealmPropertyType.bool, optional: true),";
 
           yield* fields.map((f) {
             final namedArgs = {
