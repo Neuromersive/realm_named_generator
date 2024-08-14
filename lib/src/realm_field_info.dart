@@ -1,20 +1,6 @@
-////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright 2021 Realm Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-////////////////////////////////////////////////////////////////////////////////
+// Copyright 2021 MongoDB, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:realm_common/realm_common.dart';
@@ -46,7 +32,7 @@ class RealmFieldInfo {
   bool get isLate => fieldElement.isLate;
   bool get hasDefaultValue => fieldElement.hasInitializer;
   bool get optional => type.basicType.isNullable || realmType == RealmPropertyType.mixed;
-  bool get isRequired => !(hasDefaultValue || optional);
+  bool get isRequired => !(hasDefaultValue || optional || isRealmCollection);
   bool get isRealmBacklink => realmType == RealmPropertyType.linkingObjects;
   bool get isMixed => realmType == RealmPropertyType.mixed;
   bool get isComputed => isRealmBacklink; // only computed, so far
@@ -71,12 +57,17 @@ class RealmFieldInfo {
   String get mappedTypeName => fieldElement.mappedTypeName;
 
   String get initializer {
-    if (type.realmCollectionType == RealmCollectionType.list) return ' = const []';
-    if (type.realmCollectionType == RealmCollectionType.set) return ' = const {}';
-    if (type.realmCollectionType == RealmCollectionType.map) return ' = const {}';
-    if (isMixed) return ' = const RealmValue.nullValue()';
-    if (hasDefaultValue) return ' = ${fieldElement.initializerExpression}';
-    return ''; // no initializer
+    final v = defaultValue;
+    return v == null ? '' : ' = $v';
+  }
+
+  String? get defaultValue {
+    if (type.realmCollectionType == RealmCollectionType.list) return 'const []';
+    if (type.realmCollectionType == RealmCollectionType.set) return 'const {}';
+    if (type.realmCollectionType == RealmCollectionType.map) return 'const {}';
+    if (isMixed) return 'const RealmValue.nullValue()';
+    if (hasDefaultValue) return '${fieldElement.initializerExpression}';
+    return null; // no default value
   }
 
   RealmCollectionType get realmCollectionType => type.realmCollectionType;

@@ -1,23 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright 2021 Realm Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-////////////////////////////////////////////////////////////////////////////////
+// Copyright 2021 MongoDB, Inc.
+// SPDX-License-Identifier: Apache-2.0
 
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
+import "package:collection/collection.dart";
 import 'package:realm_common/realm_common.dart';
 import 'package:realm_named_generator/src/dart_type_ex.dart';
 import 'package:source_gen/source_gen.dart';
@@ -153,8 +139,11 @@ extension ClassElementEx on ClassElement {
 
       final objectType = thisType.realmObjectType!;
 
-      // Realm Core requires computed properties at the end so we sort them at generation time versus doing it at runtime every time.
-      final mappedFields = fields.realmInfo.toList()..sort((a, b) => a.isComputed ^ b.isComputed ? (a.isComputed ? 1 : -1) : -1);
+      // Realm Core requires computed properties, such as backlinks, at the end.
+      // So we sort them using a stable sort at generation time, versus doing it
+      // at runtime every time.
+      final mappedFields = fields.realmInfo.toList();
+      mergeSort(mappedFields, compare: (a, b) => a.isComputed ^ b.isComputed ? (a.isComputed ? 1 : -1) : 0);
 
       if (objectType == ObjectType.embeddedObject && mappedFields.any((field) => field.isPrimaryKey)) {
         final pkSpan = fields.firstWhere((field) => field.realmInfo?.isPrimaryKey == true).span;
@@ -213,7 +202,19 @@ extension ClassElementEx on ClassElement {
         }
       }
 
-      return RealmModelInfo(name, modelName, realmName, mappedFields, objectType);
+      // Get the generator configuration
+      final index = realmModelInfo?.value.getField('generatorConfig')?.getField('ctorStyle')?.getField('index')?.toIntValue();
+      final ctorStyle = index != null ? CtorStyle.values[index] : CtorStyle.onlyOptionalNamed;
+      final config = GeneratorConfig(ctorStyle: ctorStyle);
+
+      return RealmModelInfo(
+        name,
+        modelName,
+        realmName,
+        mappedFields,
+        objectType,
+        config,
+      );
     } on InvalidGenerationSourceError catch (_) {
       rethrow;
     } catch (e, s) {

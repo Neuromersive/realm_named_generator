@@ -1,22 +1,6 @@
-////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright 2021 Realm Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-////////////////////////////////////////////////////////////////////////////////
+// Copyright 2021 MongoDB, Inc.
+// SPDX-License-Identifier: Apache-2.0
 
-import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/src/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
@@ -85,8 +69,8 @@ extension FieldElementEx on FieldElement {
         return null;
       }
 
-      if (ignoredInfo != null || isPrivate) {
-        // skip ignored and private fields
+      if (ignoredInfo != null) {
+        // skip ignored fields
         return null;
       }
 
@@ -338,11 +322,11 @@ extension FieldElementEx on FieldElement {
             );
           }
 
-          final intiExpression = initializerExpression;
-          if (intiExpression != null) {
+          final initExpression = initializerExpression;
+          if (initExpression != null) {
             throw RealmInvalidGenerationSourceError(
               'Realm object references should not have default values',
-              primarySpan: initializerExpressionSpan(file, intiExpression),
+              primarySpan: initializerExpressionSpan(file, initExpression),
               primaryLabel: ' Remove the default value',
               todo: 'Remove the default value for field "$displayName"',
               element: this,
@@ -360,6 +344,17 @@ extension FieldElementEx on FieldElement {
             element: this,
           );
         }
+      }
+
+      final initExpression = initializerExpression;
+      if (initExpression != null && !_isValidFieldInitializer(initExpression)) {
+        throw RealmInvalidGenerationSourceError(
+          'Field initializers must be constant',
+          primarySpan: initializerExpressionSpan(file, initExpression),
+          primaryLabel: 'Must be const',
+          todo: 'Ensure the default value for field "$displayName" is const',
+          element: this,
+        );
       }
 
       return RealmFieldInfo(
@@ -394,5 +389,17 @@ extension FieldElementEx on FieldElement {
       }
     }
     return false;
+  }
+
+  bool _isValidFieldInitializer(Expression initExpression) {
+    return switch (initExpression) {
+      Literal _ => true,
+      InstanceCreationExpression i => i.isConst,
+      ParenthesizedExpression i => _isValidFieldInitializer(i.expression),
+      PrefixExpression e => _isValidFieldInitializer(e.operand),
+      BinaryExpression b => _isValidFieldInitializer(b.leftOperand) && _isValidFieldInitializer(b.rightOperand),
+      Identifier i => (i.staticElement as PropertyAccessorElement?)?.variable.isConst ?? false,
+      _ => false,
+    };
   }
 }
