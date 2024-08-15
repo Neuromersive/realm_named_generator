@@ -1,20 +1,5 @@
-////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright 2021 Realm Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-////////////////////////////////////////////////////////////////////////////////
+// Copyright 2021 MongoDB, Inc.
+// SPDX-License-Identifier: Apache-2.0
 
 import 'package:realm_common/realm_common.dart';
 
@@ -22,55 +7,76 @@ import 'dart_type_ex.dart';
 import 'field_element_ex.dart';
 import 'realm_field_info.dart';
 
+extension<T> on Iterable<T> {
+  Iterable<T> except(bool Function(T) test) => where((e) => !test(e));
+}
+
+extension on String {
+  String nonPrivate() => startsWith('_') ? substring(1) : this;
+}
+
 class RealmModelInfo {
   final String name;
   final String modelName;
   final String realmName;
   final List<RealmFieldInfo> fields;
   final ObjectType baseType;
+  final GeneratorConfig config;
 
-  const RealmModelInfo(this.name, this.modelName, this.realmName, this.fields, this.baseType);
+  const RealmModelInfo(
+    this.name,
+    this.modelName,
+    this.realmName,
+    this.fields,
+    this.baseType,
+    this.config,
+  );
 
   Iterable<String> toCode() sync* {
     final builderFields = fields.where((f) => !f.isRealmBacklink);
 
     yield 'class $name extends $modelName with RealmEntity, RealmObjectBase, ${baseType.className} {';
     {
-      final allSettable = fields.where((f) => !f.type.isRealmCollection && !f.isRealmBacklink).toList();
+      final allSettable = fields.where((f) => !f.isComputed).toList();
 
-      final fieldsWithDefaultValue = allSettable.where((f) => f.hasDefaultValue && !f.type.isUint8List).toList();
-      final shouldEmitDefaultsSet = fieldsWithDefaultValue.isNotEmpty;
+      final fieldsWithRealmDefaults = allSettable.where((f) => f.hasDefaultValue && !f.isRealmCollection).toList();
+      final shouldEmitDefaultsSet = fieldsWithRealmDefaults.isNotEmpty;
       if (shouldEmitDefaultsSet) {
         yield 'static var _defaultsSet = false;';
         yield '';
       }
 
+      bool required(RealmFieldInfo f) => f.isRequired || f.isPrimaryKey;
+      bool usePositional(RealmFieldInfo f) => config.ctorStyle != CtorStyle.allNamed && required(f);
+      String paramName(RealmFieldInfo f) => usePositional(f) ? f.name : f.name.nonPrivate();
+      final positional = allSettable.where(usePositional);
+      final named = allSettable.except(usePositional);
+
       // Constructor
-      yield '$name({';
+      yield '$name(';
       {
-        yield 'DateTime? createdAt,';
-        yield 'DateTime? updatedAt,';
-
-        final required = allSettable.where((f) => f.isRequired || f.isPrimaryKey);
-        yield* required.map((f) => 'required ${f.mappedTypeName} ${f.name},');
-
-        final notRequired = allSettable.where((f) => !f.isRequired && !f.isPrimaryKey);
-        final lists = fields.where((f) => f.isDartCoreList).toList();
-        final sets = fields.where((f) => f.isDartCoreSet).toList();
-        final maps = fields.where((f) => f.isDartCoreMap).toList();
-        if (notRequired.isNotEmpty || lists.isNotEmpty || sets.isNotEmpty || maps.isNotEmpty) {
-          yield* notRequired.map((f) {
-            if (f.type.isUint8List && f.hasDefaultValue) {
-              return '${f.mappedTypeName}? ${f.name},';
-            }
-            return '${f.mappedTypeName} ${f.name}${f.initializer},';
+        yield* positional.map((f) => '${f.mappedTypeName} ${paramName(f)},');
+        if (named.isNotEmpty) {
+          yield '{';
+          
+          yield 'DateTime? createdAt,';
+          yield 'DateTime? updatedAt,';
+          yield* named.map((f) {
+            final requiredPrefix = required(f) ? 'required ' : '';
+            final param = paramName(f);
+            final collectionPrefix = switch (f) {
+              _ when f.isDartCoreList => 'Iterable<',
+              _ when f.isDartCoreSet => 'Set<',
+              _ when f.isDartCoreMap => 'Map<String,',
+              _ => '',
+            };
+            final typePrefix = f.isRealmCollection ? '$collectionPrefix${f.type.basicMappedName}>' : f.mappedTypeName;
+            return '$requiredPrefix$typePrefix $param${f.initializer},';
           });
-          yield* lists.map((c) => 'Iterable<${c.type.basicMappedName}> ${c.name}${c.initializer},');
-          yield* sets.map((c) => 'Set<${c.type.basicMappedName}> ${c.name}${c.initializer},');
-          yield* maps.map((c) => 'Map<String, ${c.type.basicMappedName}> ${c.name}${c.initializer},');
+          yield '}';
         }
 
-        yield '}) {';
+        yield ') {';
 
         yield "RealmObjectBase.set(this, 'createdAt', createdAt ?? DateTime.now());";
         yield "RealmObjectBase.set(this, 'updatedAt', updatedAt ?? DateTime.now());";
@@ -79,29 +85,20 @@ class RealmModelInfo {
         if (shouldEmitDefaultsSet) {
           yield 'if (!_defaultsSet) {';
           yield '  _defaultsSet = RealmObjectBase.setDefaults<$name>({';
-          yield* fieldsWithDefaultValue.map((f) => "'${f.realmName}': ${f.fieldElement.initializerExpression},");
+          yield* fieldsWithRealmDefaults.map((f) => "'${f.realmName}': ${f.fieldElement.initializerExpression},");
           yield '  });';
           yield '}';
         }
 
         yield* allSettable.map((f) {
+          final param = paramName(f);
           if (f.type.isUint8List && f.hasDefaultValue) {
-            return "RealmObjectBase.set(this, '${f.realmName}', ${f.name} ?? ${f.fieldElement.initializerExpression});";
+            return "RealmObjectBase.set(this, '${f.realmName}', $param ?? ${f.fieldElement.initializerExpression});";
           }
-
-          return "RealmObjectBase.set(this, '${f.realmName}', ${f.name});";
-        });
-
-        yield* lists.map((c) {
-          return "RealmObjectBase.set<${c.mappedTypeName}>(this, '${c.realmName}', ${c.mappedTypeName}(${c.name}));";
-        });
-
-        yield* sets.map((c) {
-          return "RealmObjectBase.set<${c.mappedTypeName}>(this, '${c.realmName}', ${c.mappedTypeName}(${c.name}));";
-        });
-
-        yield* maps.map((c) {
-          return "RealmObjectBase.set<${c.mappedTypeName}>(this, '${c.realmName}', ${c.mappedTypeName}(${c.name}));";
+          if (f.isRealmCollection) {
+            return "RealmObjectBase.set<${f.mappedTypeName}>(this, '${f.realmName}', ${f.mappedTypeName}($param));";
+          }
+          return "RealmObjectBase.set(this, '${f.realmName}', $param);";
         });
       }
       yield '}';
@@ -149,11 +146,16 @@ class RealmModelInfo {
       yield 'Stream<RealmObjectChanges<$name>> get changes => RealmObjectBase.getChanges<$name>(this);';
       yield '';
 
+      yield '@override';
+      yield 'Stream<RealmObjectChanges<$name>> changesFor([List<String>? keyPaths]) => RealmObjectBase.getChangesFor<$name>(this, keyPaths);';
+      yield '';
+
       // Freeze
       yield '@override';
       yield '$name freeze() => RealmObjectBase.freezeObject<$name>(this);';
       yield '';
 
+      // Builder
       yield '${name}Builder toBuilder() {';
       {
         yield 'return ${name}Builder.from(this);';
@@ -161,12 +163,64 @@ class RealmModelInfo {
       yield '}';
       yield '';
 
+
+      // Encode
+      yield 'EJsonValue toEJson() {';
+      {
+        yield 'return <String, dynamic>{';
+        {
+          yield* allSettable.map((f) {
+            return "'${f.realmName}': ${f.name}.toEJson(),";
+          });
+        }
+        yield '};';
+      }
+      yield '}';
+
+      yield 'static EJsonValue _toEJson($name value) => value.toEJson();';
+
+      // Decode
+      yield 'static $name _fromEJson(EJsonValue ejson) {';
+      {
+        yield 'if (ejson is! Map<String, dynamic>) return raiseInvalidEJson(ejson);';
+        final shape = allSettable.where(required);
+        if (shape.isEmpty) {
+          yield 'return ';
+        } else {
+          yield 'return switch (ejson) {';
+          {
+            yield '{';
+            {
+              yield* shape.map((f) {
+                return "'${f.realmName}': EJsonValue ${f.name},";
+              });
+            }
+            yield '} =>';
+          }
+        }
+        yield '$name(';
+        {
+          getter(RealmFieldInfo f) => f.isRequired ? f.name : "ejson['${f.realmName}']";
+          fromEJson(RealmFieldInfo f) => 'fromEJson(${getter(f)}${f.hasDefaultValue ? ', defaultValue: ${f.defaultValue}' : ''})';
+          yield* positional.map((f) => '${fromEJson(f)},');
+          yield* named.map((f) => '${paramName(f)}: ${fromEJson(f)},');
+        }
+        yield ')';
+        if (shape.isEmpty) {
+          yield ';';
+        } else {
+          yield ',';
+          yield '_ => raiseInvalidEJson(ejson),';
+          yield '};';
+        }
+      }
+      yield '}';
+
       // Schema
-      yield 'static SchemaObject get schema => _schema ??= _initSchema();';
-      yield 'static SchemaObject? _schema;';
-      yield 'static SchemaObject _initSchema() {';
+      yield 'static final schema = () {';
       {
         yield 'RealmObjectBase.registerFactory($name._);';
+        yield 'register(_toEJson, _fromEJson);';
         yield "return const SchemaObject(ObjectType.${baseType.name}, $name, '$realmName', [";
         {
           yield "SchemaProperty('createdAt', RealmPropertyType.timestamp, optional: true),";
@@ -192,9 +246,13 @@ class RealmModelInfo {
         }
         yield ']);';
       }
-      yield '}';
+      yield '}();';
+      yield '';
+      yield '@override';
+      yield 'SchemaObject get objectSchema => RealmObjectBase.getSchema(this) ?? schema;';   
+      
     }
-    yield '}';
+    yield '}';  
 
     yield 'class ${name}Builder {';
     {
