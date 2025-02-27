@@ -2,7 +2,7 @@ name: realm_named_generator
 description: >-
              Custom generator for RealmObjects, which adds some common fields, and generates builders for each RealmObject
 
-version: 3.4.1
+version: 20.0.1
 
 repository: https://github.com/Neuromersive/realm_named_generator
 
@@ -14,7 +14,7 @@ dependencies:
   build_resolvers: ^2.0.9
   build: ^2.0.0
   dart_style: ^2.2.0
-  realm_common: ^3.4.1
+  realm_common: ^20.0.1
   source_gen: ^1.1.0
   source_span: ^1.8.0
   collection: ^1.18.0

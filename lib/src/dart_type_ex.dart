@@ -16,15 +16,20 @@ extension DartTypeEx on DartType {
   bool isExactly<T>() => TypeChecker.fromRuntime(T).isExactlyType(this);
   bool isA<T>() => TypeChecker.fromRuntime(T).isAssignableFromType(this);
 
-  bool get isRealmValue => const TypeChecker.fromRuntime(RealmValue).isAssignableFromType(this);
+  bool get isRealmValue =>
+      const TypeChecker.fromRuntime(RealmValue).isAssignableFromType(this);
   bool get isRealmCollection => realmCollectionType != RealmCollectionType.none;
   bool get isRealmSet => realmCollectionType == RealmCollectionType.set;
 
   ObjectType? get realmObjectType {
     if (element == null) return null;
-    final realmModelAnnotation = realmModelChecker.firstAnnotationOfExact(element!);
+    final realmModelAnnotation =
+        realmModelChecker.firstAnnotationOfExact(element!);
     if (realmModelAnnotation == null) return null; // not a RealmModel
-    final index = realmModelAnnotation.getField('baseType')!.getField('index')!.toIntValue()!;
+    final index = realmModelAnnotation
+        .getField('baseType')!
+        .getField('index')!
+        .toIntValue()!;
     return ObjectType.values[index];
   }
 
@@ -35,7 +40,8 @@ extension DartTypeEx on DartType {
 
   bool get isNullable => session.typeSystem.isNullable(this);
   DartType get asNonNullable => session.typeSystem.promoteToNonNull(this);
-  DartType get asNullable => session.typeSystem.leastUpperBound(this, session.typeProvider.nullType);
+  DartType get asNullable =>
+      session.typeSystem.leastUpperBound(this, session.typeProvider.nullType);
 
   RealmCollectionType get realmCollectionType {
     if (isDartCoreSet) return RealmCollectionType.set;
@@ -48,7 +54,8 @@ extension DartTypeEx on DartType {
 
   DartType get basicType {
     final self = this;
-    if (self is ParameterizedType && (isRealmCollection || isDartCoreIterable)) {
+    if (self is ParameterizedType &&
+        (isRealmCollection || isDartCoreIterable)) {
       return self.typeArguments.last;
     }
     return this;
@@ -63,13 +70,16 @@ extension DartTypeEx on DartType {
         final mapped = self.typeArguments.last.mappedType;
         if (self != mapped) {
           if (self.isDartCoreList) {
-            return PseudoType('RealmList<${mapped.getDisplayString(withNullability: true)}>');
+            return PseudoType(
+                'RealmList<${mapped.getDisplayString(withNullability: true)}>');
           }
           if (self.isDartCoreSet) {
-            return PseudoType('RealmSet<${mapped.getDisplayString(withNullability: true)}>');
+            return PseudoType(
+                'RealmSet<${mapped.getDisplayString(withNullability: true)}>');
           }
           if (self.isDartCoreMap) {
-            return PseudoType('RealmMap<${mapped.getDisplayString(withNullability: true)}>');
+            return PseudoType(
+                'RealmMap<${mapped.getDisplayString(withNullability: true)}>');
           }
         }
       }
@@ -77,7 +87,8 @@ extension DartTypeEx on DartType {
       if (self is ParameterizedType) {
         final mapped = self.typeArguments.last.mappedType;
         if (self != mapped) {
-          return PseudoType('RealmResults<${mapped.basicMappedName}>', nullabilitySuffix: NullabilitySuffix.none);
+          return PseudoType('RealmResults<${mapped.basicMappedName}>',
+              nullabilitySuffix: NullabilitySuffix.none);
         }
       }
     } else if (isRealmModel) {
@@ -95,7 +106,10 @@ extension DartTypeEx on DartType {
 
   RealmPropertyType? _realmType(bool recurse) {
     if (isRealmCollection && recurse) {
-      return (this as ParameterizedType).typeArguments.last._realmType(false); // only recurse once! (for now)
+      return (this as ParameterizedType)
+          .typeArguments
+          .last
+          ._realmType(false); // only recurse once! (for now)
     }
     if (isDartCoreInt) return RealmPropertyType.int;
     if (isDartCoreBool) return RealmPropertyType.bool;

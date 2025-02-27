@@ -31,7 +31,8 @@ class RealmFieldInfo {
   bool get isFinal => fieldElement.isFinal;
   bool get isLate => fieldElement.isLate;
   bool get hasDefaultValue => fieldElement.hasInitializer;
-  bool get optional => type.basicType.isNullable || realmType == RealmPropertyType.mixed;
+  bool get optional =>
+      type.basicType.isNullable || realmType == RealmPropertyType.mixed;
   bool get isRequired => !(hasDefaultValue || optional || isRealmCollection);
   bool get isRealmBacklink => realmType == RealmPropertyType.linkingObjects;
   bool get isMixed => realmType == RealmPropertyType.mixed;
@@ -47,10 +48,13 @@ class RealmFieldInfo {
 
   String get basicMappedTypeName => type.basicMappedName;
 
-  String get basicNonNullableMappedTypeName => type.basicType.asNonNullable.mappedName;
+  String get basicNonNullableMappedTypeName =>
+      type.basicType.asNonNullable.mappedName;
 
   String get basicRealmTypeName =>
-      fieldElement.modelType.basicType.asNonNullable.element?.remappedRealmName ?? fieldElement.modelType.basicType.asNonNullable.basicMappedName;
+      fieldElement
+          .modelType.basicType.asNonNullable.element?.remappedRealmName ??
+      fieldElement.modelType.basicType.asNonNullable.basicMappedName;
 
   String get modelTypeName => fieldElement.modelTypeName;
 
@@ -73,7 +77,9 @@ class RealmFieldInfo {
   RealmCollectionType get realmCollectionType => type.realmCollectionType;
 
   Iterable<String> toCode() sync* {
-    final getTypeName = type.isRealmCollection ? basicMappedTypeName : basicNonNullableMappedTypeName;
+    final getTypeName = type.isRealmCollection
+        ? basicMappedTypeName
+        : basicNonNullableMappedTypeName;
     yield '@override';
     if (isRealmBacklink) {
       yield "$mappedTypeName get $name {";

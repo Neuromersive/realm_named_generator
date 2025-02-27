@@ -34,20 +34,25 @@ extension on Iterable<FieldElement> {
       final annotation = field.primaryKeyInfo!.annotation;
       throw RealmInvalidGenerationSourceError(
         'Duplicate primary keys',
-        todo: "Avoid duplicated $annotation on fields ${primaryKeys.map((e) => "'$e'").join(', ')}",
+        todo:
+            "Avoid duplicated $annotation on fields ${primaryKeys.map((e) => "'$e'").join(', ')}",
         element: field,
         primarySpan: field.span!,
         primaryLabel: 'second primary key',
-        secondarySpans: {for (final p in primaryKeys..removeAt(1)) p.fieldElement.span!: ''},
+        secondarySpans: {
+          for (final p in primaryKeys..removeAt(1)) p.fieldElement.span!: ''
+        },
       );
     }
   }
 }
 
 extension ClassElementEx on ClassElement {
-  AnnotatedNode get declarationAstNode => getDeclarationFromElement(this)!.node as AnnotatedNode;
+  AnnotatedNode get declarationAstNode =>
+      getDeclarationFromElement(this)!.node as AnnotatedNode;
 
-  AnnotationValue? get realmModelInfo => annotationInfoOfExact(realmModelChecker);
+  AnnotationValue? get realmModelInfo =>
+      annotationInfoOfExact(realmModelChecker);
 
   RealmModelInfo? get realmInfo {
     try {
@@ -67,7 +72,8 @@ extension ClassElementEx on ClassElement {
           element: this,
           primarySpan: span,
           primaryLabel: 'missing prefix',
-          todo: 'Align class name to match prefix ${prefix is RegExp ? '${prefix.pattern} (regular expression)' : prefix},',
+          todo:
+              'Align class name to match prefix ${prefix is RegExp ? '${prefix.pattern} (regular expression)' : prefix},',
         );
       }
 
@@ -82,7 +88,9 @@ extension ClassElementEx on ClassElement {
       }
 
       // Remove suffix and prefix, if any.
-      final name = modelName.substring(0, modelName.length - suffix.length).replaceFirst(prefix, '');
+      final name = modelName
+          .substring(0, modelName.length - suffix.length)
+          .replaceFirst(prefix, '');
 
       // Check that mapping not already defined
       final mapped = session.mapping.putIfAbsent(name, () => this);
@@ -90,11 +98,13 @@ extension ClassElementEx on ClassElement {
         throw RealmInvalidGenerationSourceError('Duplicate definition',
             element: this,
             primarySpan: span,
-            primaryLabel: "realm model '${mapped.displayName}' already defines '$name'",
+            primaryLabel:
+                "realm model '${mapped.displayName}' already defines '$name'",
             secondarySpans: {
               mapped.span!: '',
             },
-            todo: "Duplicate realm model definitions '$displayName' and '${mapped.displayName}'.");
+            todo:
+                "Duplicate realm model definitions '$displayName' and '${mapped.displayName}'.");
       }
 
       // Check that realm model class does not extend another class than Object (not supported for now).
@@ -125,7 +135,8 @@ extension ClassElementEx on ClassElement {
 
       // Core has a limit of 57 characters for SDK names (technically 63, but SDKs names are always prefixed class_)
       if (realmName.length > 57) {
-        final clarification = realmName == name ? '' : ' which is stored as $realmName';
+        final clarification =
+            realmName == name ? '' : ' which is stored as $realmName';
         throw RealmInvalidGenerationSourceError(
           "Invalid model name",
           element: this,
@@ -143,68 +154,34 @@ extension ClassElementEx on ClassElement {
       // So we sort them using a stable sort at generation time, versus doing it
       // at runtime every time.
       final mappedFields = fields.realmInfo.toList();
-      mergeSort(mappedFields, compare: (a, b) => a.isComputed ^ b.isComputed ? (a.isComputed ? 1 : -1) : 0);
+      mergeSort(mappedFields,
+          compare: (a, b) =>
+              a.isComputed ^ b.isComputed ? (a.isComputed ? 1 : -1) : 0);
 
-      if (objectType == ObjectType.embeddedObject && mappedFields.any((field) => field.isPrimaryKey)) {
-        final pkSpan = fields.firstWhere((field) => field.realmInfo?.isPrimaryKey == true).span;
-        throw RealmInvalidGenerationSourceError("Primary key not allowed on embedded objects",
+      if (objectType == ObjectType.embeddedObject &&
+          mappedFields.any((field) => field.isPrimaryKey)) {
+        final pkSpan = fields
+            .firstWhere((field) => field.realmInfo?.isPrimaryKey == true)
+            .span;
+        throw RealmInvalidGenerationSourceError(
+            "Primary key not allowed on embedded objects",
             element: this,
             primarySpan: pkSpan,
             secondarySpans: {span!: ''},
-            primaryLabel: "$realmName is marked as embedded but has primary key defined",
-            todo: 'Remove the @PrimaryKey annotation from the field or set the model type to a value different from ObjectType.embeddedObject.');
-      }
-
-      // TODO:
-      // What follows is the least intrusive handling of invariants for asymmetric
-      // objects I could come up with.
-      //
-      // Really this calls for a bigger refactoring of the generator code where we
-      // build a graph of RealmModelInfo and RealmFieldInfo, but I have multiple
-      // PRs inflight that touches this code, so I will defer the refactoring until
-      // they have landed.
-
-      // Check that no objects have links to asymmetric objects.
-      for (final field in mappedFields) {
-        final fieldElement = field.fieldElement;
-        final classElement = fieldElement.type.basicType.element as ClassElement;
-        if (classElement.thisType.isRealmModelOfType(ObjectType.asymmetricObject)) {
-          throw RealmInvalidGenerationSourceError(
-            'Linking to asymmetric objects is not allowed',
-            todo: 'Remove the field',
-            element: fieldElement,
-          );
-        }
-      }
-
-      // Check that asymmetric objects have a primary key named _id.
-      if (objectType == ObjectType.asymmetricObject) {
-        var hasPrimaryKey = false;
-        for (final field in mappedFields) {
-          final fieldElement = field.fieldElement;
-          if (field.isPrimaryKey) {
-            hasPrimaryKey = true;
-            if (field.realmName != '_id') {
-              throw RealmInvalidGenerationSourceError(
-                'Asymmetric objects must have a primary key named _id',
-                todo: 'Add @MapTo("_id") to the @PrimaryKey field',
-                element: fieldElement,
-              );
-            }
-          }
-        }
-        if (!hasPrimaryKey) {
-          throw RealmInvalidGenerationSourceError(
-            'Asymmetric objects must have a primary key named _id',
-            todo: 'Add a primary key named _id',
-            element: this,
-          );
-        }
+            primaryLabel:
+                "$realmName is marked as embedded but has primary key defined",
+            todo:
+                'Remove the @PrimaryKey annotation from the field or set the model type to a value different from ObjectType.embeddedObject.');
       }
 
       // Get the generator configuration
-      final index = realmModelInfo?.value.getField('generatorConfig')?.getField('ctorStyle')?.getField('index')?.toIntValue();
-      final ctorStyle = index != null ? CtorStyle.values[index] : CtorStyle.onlyOptionalNamed;
+      final index = realmModelInfo?.value
+          .getField('generatorConfig')
+          ?.getField('ctorStyle')
+          ?.getField('index')
+          ?.toIntValue();
+      final ctorStyle =
+          index != null ? CtorStyle.values[index] : CtorStyle.onlyOptionalNamed;
       final config = GeneratorConfig(ctorStyle: ctorStyle);
 
       return RealmModelInfo(
