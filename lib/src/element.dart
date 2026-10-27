@@ -18,8 +18,8 @@ import 'session.dart';
 import 'type_checkers.dart';
 import 'utils.dart';
 
-ElementDeclarationResult? getDeclarationFromElement(Element element) {
-  return session.resolvedLibrary.getElementDeclaration(element);
+FragmentDeclarationResult? getDeclarationFromElement(Element element) {
+  return session.resolvedLibrary.getFragmentDeclaration(element.firstFragment);
 }
 
 extension on FileSpan {
