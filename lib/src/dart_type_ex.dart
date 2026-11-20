@@ -13,10 +13,10 @@ import 'session.dart';
 import 'type_checkers.dart';
 
 extension DartTypeEx on DartType {
-  bool isExactly<T>() => TypeChecker.fromRuntime(T).isExactlyType(this);
-  bool isA<T>() => TypeChecker.fromRuntime(T).isAssignableFromType(this);
+  bool isExactly<T>() => TypeChecker.typeNamed(T).isExactlyType(this);
+  bool isA<T>() => TypeChecker.typeNamed(T).isAssignableFromType(this);
 
-  bool get isRealmValue => const TypeChecker.fromRuntime(RealmValue).isAssignableFromType(this);
+  bool get isRealmValue => const TypeChecker.typeNamed(RealmValue, inPackage: 'realm_common').isAssignableFromType(this);
   bool get isRealmCollection => realmCollectionType != RealmCollectionType.none;
   bool get isRealmSet => realmCollectionType == RealmCollectionType.set;
 
